@@ -3,7 +3,7 @@ import { Camera, ArrowRight, Check, X, RotateCcw, BookOpen, Brain, Sparkles, Vol
 
 const SILICONFLOW_API_BASE = 'https://api.siliconflow.cn/v1/chat/completions';
 const TEXT_MODEL = 'deepseek-ai/DeepSeek-V3';
-const OCR_MODEL = 'deepseek-ai/DeepSeek-OCR';
+const OCR_MODEL = 'Qwen/Qwen2.5-VL-32B-Instruct'
 
 export default function App() {
   const [appState, setAppState] = useState('home');
