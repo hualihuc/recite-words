@@ -6,7 +6,6 @@ const TEXT_MODEL = 'deepseek-ai/DeepSeek-V3';
 const OCR_MODEL = 'deepseek-ai/DeepSeek-OCR';
 
 export default function App() {
-  // ---------- 所有状态 ----------
   const [appState, setAppState] = useState('home');
   const [flowType, setFlowType] = useState('free');
   const [listType, setListType] = useState('');
@@ -30,7 +29,6 @@ export default function App() {
   const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
 
-  // ---------- 生命周期 ----------
   useEffect(() => {
     if (!window.XLSX) {
       const script = document.createElement('script');
@@ -63,7 +61,6 @@ export default function App() {
     }
   }, []);
 
-  // ---------- 工具函数 ----------
   const saveApiKey = (key) => {
     setApiKey(key);
     localStorage.setItem('siliconflow_api_key', key);
@@ -132,7 +129,7 @@ export default function App() {
     });
   };
 
-  // ---------- 核心解析 ----------
+  // ---------- 核心解析函数（已修复 JSON 提取逻辑） ----------
   const analyzeContent = async (type, contentData, mimeType = null) => {
     setAppState('analyzing');
     setErrorMessage('');
@@ -201,21 +198,34 @@ export default function App() {
           }
           const data = await response.json();
           const content = data.choices[0].message.content;
+
+          // ========== 增强的 JSON 提取 + 显示原始内容 ==========
           let cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+          // 尝试提取 JSON 数组（贪婪匹配）
           let match = cleaned.match(/\[\s*\{[\s\S]*\}\s*\]/);
           if (!match) {
+            // 如果匹配不到数组，尝试匹配单个 JSON 对象
             match = cleaned.match(/\{[\s\S]*\}/);
           }
           if (match) {
             cleaned = match[0];
+          } else {
+            // 最后尝试：匹配任何以 [ 开头 ] 结尾的内容
+            const anyJson = cleaned.match(/\[[\s\S]*\]/);
+            if (anyJson) cleaned = anyJson[0];
           }
+
           let parsed;
           try {
             parsed = JSON.parse(cleaned);
           } catch (e) {
             console.error('JSON 解析失败，原始内容：', content);
-            throw new Error('无法解析 AI 返回的数据，请检查图片是否清晰，或稍后重试。');
+            const preview = content ? content.substring(0, 500) : '(空返回)';
+            throw new Error('无法解析 AI 返回的数据。原始返回片段：\n' + preview);
           }
+
+          // 兼容不同返回结构
           if (Array.isArray(parsed)) {
             result = parsed;
           } else if (parsed.data && Array.isArray(parsed.data)) {
@@ -247,7 +257,6 @@ export default function App() {
     }
   };
 
-  // ---------- 上传处理 ----------
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
@@ -294,7 +303,6 @@ export default function App() {
     if (docInputRef.current) docInputRef.current.value = '';
   };
 
-  // ---------- 流程控制 ----------
   const resetLearningStates = () => {
     setIncorrectWords([]);
     setShowMeaning(false);
@@ -361,7 +369,6 @@ export default function App() {
     setAppState('home');
   };
 
-  // ---------- 学习与复习 ----------
   const handleNextLearn = () => {
     if (currentWordIndex < wordList.length - 1) {
       setCurrentWordIndex(prev => prev + 1);
@@ -453,9 +460,8 @@ export default function App() {
     localStorage.setItem('ai_english_review_book', JSON.stringify(newBook));
   };
 
-  // ========== 粉色主题渲染组件 ==========
+  // ========== 渲染组件（粉色主题） ==========
 
-  // ----- 首页 -----
   const renderHome = () => (
     <div className="flex flex-col items-center w-full max-w-md mx-auto py-8 space-y-8 animate-in fade-in">
       <div className="w-full flex justify-between items-center px-4">
@@ -482,7 +488,6 @@ export default function App() {
       )}
 
       <div className="w-full space-y-4 px-2">
-        {/* 计划卡片 */}
         <div className="bg-gradient-to-br from-pink-50 to-rose-50 p-5 rounded-3xl shadow-md border border-pink-100 flex flex-col relative overflow-hidden group hover:shadow-xl transition-shadow duration-300">
           <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-pink-200 to-rose-200 rounded-full blur-3xl opacity-40 -mr-10 -mt-10"></div>
           <div className="flex items-center justify-between mb-2 relative z-10 w-full">
@@ -527,7 +532,6 @@ export default function App() {
           )}
         </div>
 
-        {/* 自由带背 */}
         <button onClick={() => { setFlowType('free'); setAppState('upload'); }} className="w-full bg-gradient-to-br from-pink-50 to-purple-50 p-5 rounded-3xl shadow-md border border-pink-100 flex items-center justify-between hover:shadow-xl transition-all group">
           <div className="flex items-center gap-3 text-left">
             <div className="p-2.5 bg-gradient-to-br from-pink-400 to-purple-400 text-white rounded-xl shadow-md"><Layers size={24} /></div>
@@ -539,7 +543,6 @@ export default function App() {
           <ArrowRight className="text-pink-400 group-hover:text-pink-600 transition-colors" />
         </button>
 
-        {/* 复习模式 */}
         <div className="w-full bg-gradient-to-br from-rose-50 to-amber-50 p-5 rounded-3xl shadow-md border border-rose-100 flex flex-col gap-3">
           <div className="flex items-center justify-between mb-1 w-full">
             <div className="flex items-center gap-3 text-left">
@@ -572,7 +575,6 @@ export default function App() {
     </div>
   );
 
-  // ----- 上传界面 -----
   const renderUpload = () => (
     <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto py-8 space-y-6">
       <div className="w-full flex justify-start mb-2">
@@ -603,7 +605,6 @@ export default function App() {
     </div>
   );
 
-  // ----- 分析中 -----
   const renderAnalyzing = () => (
     <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto min-h-[60vh] space-y-6">
       <div className="relative"><div className="absolute inset-0 bg-pink-200 rounded-full animate-ping opacity-75"></div><div className="relative bg-white p-4 rounded-full shadow-lg"><Sparkles className="text-pink-500 animate-pulse" size={40} /></div></div>
@@ -612,7 +613,6 @@ export default function App() {
     </div>
   );
 
-  // ----- 确认清单 -----
   const renderConfirming = () => (
     <div className="flex flex-col items-center w-full max-w-md mx-auto py-6 min-h-screen">
       <div className="w-full text-center mb-6">
@@ -655,7 +655,6 @@ export default function App() {
     </div>
   );
 
-  // ----- 总览列表 -----
   const renderWordList = () => {
     const list = listType === 'plan' ? (planData?.words || []) : reviewBook;
     const isPlan = listType === 'plan';
@@ -706,7 +705,6 @@ export default function App() {
     );
   };
 
-  // ----- 制定计划 -----
   const renderPlanSetup = () => (
     <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto py-10 min-h-[70vh]">
       <div className="w-full bg-white p-8 rounded-3xl shadow-xl border border-pink-100 text-center space-y-8 animate-in fade-in zoom-in-95">
@@ -733,7 +731,6 @@ export default function App() {
     </div>
   );
 
-  // ----- 极速复习卡片 -----
   const renderFlashcardMode = () => {
     const currentWord = wordList[currentWordIndex];
     if (!currentWord) return null;
@@ -784,7 +781,6 @@ export default function App() {
     );
   };
 
-  // ----- 学习模式 -----
   const renderLearning = () => {
     const currentWord = wordList[currentWordIndex];
     if(!currentWord) return null;
@@ -901,7 +897,6 @@ export default function App() {
     );
   };
 
-  // ----- 测试模式 -----
   const renderTesting = () => {
     const currentWord = wordList[currentWordIndex];
     if(!currentWord) return null;
@@ -945,7 +940,6 @@ export default function App() {
     );
   };
 
-  // ----- 测试结果 -----
   const renderResults = () => {
     const accuracy = Math.round(((wordList.length - incorrectWords.length) / wordList.length) * 100);
     const isPerfect = incorrectWords.length === 0;
@@ -991,7 +985,6 @@ export default function App() {
     );
   };
 
-  // ----- 设置弹窗 -----
   const renderSettingsModal = () => {
     if (!showSettings) return null;
     return (
@@ -1018,7 +1011,6 @@ export default function App() {
     );
   };
 
-  // ========== 主渲染 ==========
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 font-sans text-gray-900 p-4 md:p-8 flex flex-col selection:bg-pink-200 selection:text-pink-900 overflow-y-auto">
       <div className="flex-1 w-full max-w-md mx-auto">
