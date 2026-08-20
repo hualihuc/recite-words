@@ -129,7 +129,6 @@ export default function App() {
     });
   };
 
-  // ---------- 核心解析函数（已修复 JSON 提取逻辑） ----------
   const analyzeContent = async (type, contentData, mimeType = null) => {
     setAppState('analyzing');
     setErrorMessage('');
@@ -199,21 +198,21 @@ export default function App() {
           const data = await response.json();
           const content = data.choices[0].message.content;
 
-          // ========== 增强的 JSON 提取 + 显示原始内容 ==========
-          let cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+          // ========== 增强的 JSON 解析（修复图片识别问题） ==========
+          const trimmed = content.trim();
+          // 检查是否以 { 或 [ 开头（JSON 对象或数组）
+          if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+            throw new Error('AI 返回了非 JSON 格式内容：' + trimmed.substring(0, 200));
+          }
 
-          // 尝试提取 JSON 数组（贪婪匹配）
+          let cleaned = trimmed.replace(/```json/gi, '').replace(/```/g, '').trim();
+          // 尝试匹配 JSON 数组
           let match = cleaned.match(/\[\s*\{[\s\S]*\}\s*\]/);
           if (!match) {
-            // 如果匹配不到数组，尝试匹配单个 JSON 对象
             match = cleaned.match(/\{[\s\S]*\}/);
           }
           if (match) {
             cleaned = match[0];
-          } else {
-            // 最后尝试：匹配任何以 [ 开头 ] 结尾的内容
-            const anyJson = cleaned.match(/\[[\s\S]*\]/);
-            if (anyJson) cleaned = anyJson[0];
           }
 
           let parsed;
@@ -221,11 +220,9 @@ export default function App() {
             parsed = JSON.parse(cleaned);
           } catch (e) {
             console.error('JSON 解析失败，原始内容：', content);
-            const preview = content ? content.substring(0, 500) : '(空返回)';
-            throw new Error('无法解析 AI 返回的数据。原始返回片段：\n' + preview);
+            throw new Error('无法解析 AI 返回的数据，请确保图片清晰且包含英文单词。原始片段：' + content.substring(0, 300));
           }
 
-          // 兼容不同返回结构
           if (Array.isArray(parsed)) {
             result = parsed;
           } else if (parsed.data && Array.isArray(parsed.data)) {
@@ -266,7 +263,7 @@ export default function App() {
         const file = files[0];
         const base64String = await fileToBase64(file);
         const base64Data = base64String.split(',')[1];
-        analyzeContent('image', base64Data, file.type);
+        await analyzeContent('image', base64Data, file.type);
       } catch (err) {
         setErrorMessage('图片读取失败，请重试。');
         setAppState('upload');
@@ -296,7 +293,7 @@ export default function App() {
       } else {
         textContent = await readTxtFile(file);
       }
-      analyzeContent('text', textContent.substring(0, 10000));
+      await analyzeContent('text', textContent.substring(0, 10000));
     } catch (err) {
       setErrorMessage('文档读取失败。');
     }
@@ -460,7 +457,7 @@ export default function App() {
     localStorage.setItem('ai_english_review_book', JSON.stringify(newBook));
   };
 
-  // ========== 渲染组件（粉色主题） ==========
+  // ========== 粉色主题渲染组件 ==========
 
   const renderHome = () => (
     <div className="flex flex-col items-center w-full max-w-md mx-auto py-8 space-y-8 animate-in fade-in">
